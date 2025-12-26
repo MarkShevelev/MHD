@@ -1,0 +1,87 @@
+# ===============================
+# Rust специфичные
+# ===============================
+
+# Сборка и зависимости
+/target/
+**/*.rs.bk
+.deps/
+*.d
+
+# Rust анализаторы
+/save-analysis/
+rusty-tags.vi
+
+# Профилирование
+*.profraw
+
+# ===============================
+# Системные файлы
+# ===============================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.stackdump
+
+# Linux
+*~
+
+# ===============================
+# IDE и редакторы
+# ===============================
+
+# VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.history/
+
+# Vim
+*.swp
+*.swo
+*~
+
+# ===============================
+# Тестирование и бенчмарки
+# ===============================
+
+# Criterion бенчмарки
+benches/*.rs
+benches/*.txt
+
+# Тестовые данные
+test_data/
+*.test
+
+# ===============================
+# Временные файлы
+# ===============================
+
+# Временные файлы cargo
+**/cargo-checksum.json
+
+# Кэш
+.cache/
+*.cache
