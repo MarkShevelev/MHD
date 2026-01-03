@@ -5,14 +5,15 @@
 вектора консервативных переменных $\textbf{U}$ на следующем слое по времени
 через разность потоков $\textbf{F}$ на границах объёма. В одномерном случае 
 формула принимает вид:
+
 $$
 \textbf{U}^{n + 1}_m = \textbf{U}^{n}_m - \frac{\tau^n}{h}
 \left[ 
-\textbf{F}^n_{m + \frac{1}{2}}\left(\textbf{U}^n_{m+1},\textbf{U}^n_m\right)
-- 
+\textbf{F}^n_{m + \frac{1}{2}}\left(\textbf{U}^n_{m+1},\textbf{U}^n_m\right) -
 \textbf{F}^n_{m - \frac{1}{2}}\left( \textbf{U}^n_{m},\textbf{U}^n_{m-1}\right) 
 \right];
 $$
+
 где $\tau^n$ &mdash; шаг по времени на слое $n$, $h$ &mdash; шаг по пространству.
 
 Значения $\textbf{F}$ могут быть вычислены различными способами:
