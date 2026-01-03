@@ -1,3 +1,127 @@
-fn main() {
-    println!("Hello, world!");
+#![allow(unused_assignments)]
+#![allow(dead_code)]
+#![allow(unused_variables)]
+
+const MESH_SIZE: usize  = 1024usize;
+#[allow(non_upper_case_globals)]
+const dx: f32           = 1.0f32;
+#[allow(non_upper_case_globals)]
+const dt: f32           = 0.5f32;
+
+mod mesh_st;
+mod mesh_fn;
+mod central_flux;
+
+fn rho_init_pulse (
+  rho: &mut [f32], flat: f32, bump: f32, center: usize, spread: usize)
+{
+  for el in rho.iter_mut()
+  {
+    *el = flat;
+  }
+
+  let beg = center - spread / 2;
+  let end = center + spread / 2;
+
+  for i in beg..end
+  {
+    rho[i] = bump;
+  }
+}
+
+fn mnt_init_zero ( mnt: &mut [f32])
+{
+  for el in mnt.iter_mut()
+  {
+    *el = 0.0f32;
+  }
+}
+
+struct UVecf32
+{
+  rho: Vec<f32>,
+  mnt: Vec<f32>,
+  bz : Vec<f32>,
+}
+
+impl UVecf32
+{
+  pub fn new (mesh_size: usize) -> Self
+  {
+    Self
+    {
+      rho: vec![0.0f32; mesh_size],
+      mnt: vec![0.0f32; mesh_size],
+      bz : vec![0.0f32; mesh_size],
+    }
+  }
+}
+
+pub fn debug_mesh_print(m: &[f32])
+{
+  for (i, el) in m.iter().enumerate()
+  {
+    print!("{:5} {:.5}\n", i, *el);
+  }
+}
+
+pub fn main() {
+  let mut uvec_curr = UVecf32::new(MESH_SIZE + 2);
+  let mut uvec_next = UVecf32::new(MESH_SIZE + 2);
+  let mut fvec_curr = UVecf32::new(MESH_SIZE + 1);
+
+  let c0 = 0.5f32;
+  let mut u_curr = mesh_st::Uf32::new(&mut uvec_curr.rho, &mut uvec_curr.mnt, &mut uvec_curr.bz);
+  let mut u_next = mesh_st::Uf32::new(&mut uvec_next.rho, &mut uvec_next.mnt, &mut uvec_next.bz);
+  let mut f_curr = mesh_st::Uf32::new(&mut fvec_curr.rho, &mut fvec_curr.mnt, &mut fvec_curr.bz);
+
+  rho_init_pulse(&mut u_curr.rho, 1.0f32, 2.0f32, MESH_SIZE >> 1, MESH_SIZE >> 4);
+  // mnt zero
+  // bz  zero
+  // fluxes are zero
+
+  { // cacl_flux -> cacl_bflux -> diff_flux -> apply_flux -> calc_bu -> swap
+    // main loop
+    for _ in 0..20
+    {
+      central_flux::rho_central_flux_f32(&mut f_curr.rho, &u_curr);
+      central_flux::mnt_central_flux_f32(&mut f_curr.mnt, &u_curr, c0);
+      central_flux::bz_central_flux_f32(&mut f_curr.bz, &u_curr);
+
+      // println!("mnt flux:");
+      // debug_mesh_print(f_curr.mnt);
+      
+      mesh_fn::f_diff_f32(&mut f_curr.rho);
+      mesh_fn::f_diff_f32(&mut f_curr.mnt);
+      mesh_fn::f_diff_f32(&mut f_curr.bz);
+
+      // println!("mnt diff flux:");
+      // debug_mesh_print(f_curr.mnt);
+
+      mesh_fn::u_advance_f32(&mut u_next.rho, &u_curr.rho, &f_curr.rho, dt/dx);
+      mesh_fn::u_advance_f32(&mut u_next.mnt, &u_curr.mnt, &f_curr.mnt, dt/dx);
+      mesh_fn::u_advance_f32(&mut u_next.bz, &u_curr.bz, &f_curr.bz, dt/dx);
+
+      u_next.rho[0] = u_next.rho[1];
+      u_next.rho[u_next.rho.len() - 1] = u_next.rho[u_next.rho.len() - 2];
+
+      u_next.mnt[0] = u_next.mnt[1];
+      u_next.mnt[u_next.mnt.len() - 1] = u_next.mnt[u_next.mnt.len() - 2];
+
+      u_next.bz[0] = u_next.bz[1];
+      u_next.bz[u_next.bz.len() - 1] = u_next.bz[u_next.bz.len() - 2];
+
+      (u_curr, u_next ) = (u_next , u_curr);
+    }
+    
+  }
+
+  debug_mesh_print(&u_curr.rho);
+  // println!("rho:");
+  // debug_mesh_print(&u_curr.rho);
+  // println!("mnt:");
+  // debug_mesh_print(&u_curr.mnt);
+  // println!("bz:");
+  // debug_mesh_print(&u_curr.bz);
+
 }
