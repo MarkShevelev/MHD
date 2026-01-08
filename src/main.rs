@@ -58,11 +58,13 @@ impl UVecf32
   }
 }
 
-pub fn debug_mesh_print(m: &[f32])
+pub fn debug_mesh_print(u: &mesh_st::Uf32)
 {
-  for (i, el) in m.iter().enumerate()
+  println!("{:>5} {:>8} {:>8} {:>8}","iter", "rho", "mnt", "bz");
+  let size = u.rho.len();
+  for i in 0..size
   {
-    print!("{:5} {:.5}\n", i, *el);
+    println!("{:5} {:>8.5} {:>8.5} {:>8.5}", i, u.rho[i], u.mnt[i], u.bz[i]);
   }
 }
 
@@ -83,11 +85,11 @@ pub fn main() {
 
   { // cacl_flux -> cacl_bflux -> diff_flux -> apply_flux -> calc_bu -> swap
     // main loop
-    for _ in 0..20
+    for _ in 0..1800
     {
-      central_flux::rho_central_flux_f32(&mut f_curr.rho, &u_curr, dt/dx);
-      central_flux::mnt_central_flux_f32(&mut f_curr.mnt, &u_curr, c0, dt/dx);
-      central_flux::bz_central_flux_f32(&mut f_curr.bz, &u_curr, dt/dx);
+      lxf_flux::rho_lxf_flux_f32(&mut f_curr.rho, &u_curr, dt/dx);
+      lxf_flux::mnt_lxf_flux_f32(&mut f_curr.mnt, &u_curr, c0, dt/dx);
+      lxf_flux::bz_lxf_flux_f32(&mut f_curr.bz, &u_curr, dt/dx);
 
       mesh_fn::f_diff_f32(&mut f_curr.rho);
       mesh_fn::f_diff_f32(&mut f_curr.mnt);
@@ -110,12 +112,5 @@ pub fn main() {
     }
   }
 
-  debug_mesh_print(&u_curr.rho);
-  // println!("rho:");
-  // debug_mesh_print(&u_curr.rho);
-  // println!("mnt:");
-  // debug_mesh_print(&u_curr.mnt);
-  // println!("bz:");
-  // debug_mesh_print(&u_curr.bz);
-
+  debug_mesh_print(&u_curr);
 }
