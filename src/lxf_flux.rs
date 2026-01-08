@@ -1,12 +1,12 @@
 use super::mesh_st::{Uf32};
 
-pub fn rho_lxf_flux_f32(f: &mut [f32], u: &Uf32, d: f32)
+pub fn rho_lxf_flux_f32(f: &mut [f32], u: &Uf32, c0: f32, d: f32)
 {
   for ( (w_mnt, w_rho), f_val) in u.mnt.windows(2).zip(u.rho.windows(2)).zip(f.iter_mut())
   {
     let left_f  = w_mnt[0];
     let right_f = w_mnt[1];
-    *f_val = (left_f + right_f) / 2.0f32 - (w_rho[1] - w_rho[0]) / (2.0f32 * d); 
+    *f_val = (left_f + right_f) / 2.0f32 - (w_rho[1] - w_rho[0]) / (2.0f32 * d);
   }
 }
 
@@ -26,7 +26,7 @@ pub fn mnt_lxf_flux_f32 (f: &mut [f32], u: &Uf32, c0: f32, d: f32)
   }
 }
 
-pub fn bz_lxf_flux_f32 (f: &mut [f32], u: &Uf32, d: f32)
+pub fn bz_lxf_flux_f32 (f: &mut [f32], u: &Uf32, c0: f32, d: f32)
 {
   let wins_rho = u.rho.windows(2);
   let wins_bz  = u.bz.windows(2);

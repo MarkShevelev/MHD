@@ -1,6 +1,6 @@
 use super::mesh_st::{Uf32};
 
-pub fn rho_central_flux_f32 (f: &mut [f32], u: &Uf32, d: f32)
+pub fn rho_central_flux_f32 (f: &mut [f32], u: &Uf32, c0: f32, d: f32)
 {
   for (w, f_val) in u.mnt.windows(2).zip(f.iter_mut())
   {
@@ -22,7 +22,7 @@ pub fn mnt_central_flux_f32 (f: &mut [f32], u: &Uf32, c0: f32, d: f32)
   }
 }
 
-pub fn bz_central_flux_f32 (f: &mut [f32], u: &Uf32, d: f32)
+pub fn bz_central_flux_f32 (f: &mut [f32], u: &Uf32, c0: f32, d: f32)
 {
   let rho_wins = u.rho.windows(2);
   let mnt_wins = u.mnt.windows(2);
