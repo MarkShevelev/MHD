@@ -12,6 +12,7 @@ mod mesh_st;
 mod mesh_fn;
 mod central_flux;
 mod lxf_flux;
+mod rusanov_flux;
 
 fn rho_init_pulse (
   rho: &mut [f32], flat: f32, bump: f32, center: usize, spread: usize)
@@ -85,11 +86,11 @@ pub fn main() {
 
   { // cacl_flux -> cacl_bflux -> diff_flux -> apply_flux -> calc_bu -> swap
     // main loop
-    for _ in 0..1800
+    for _ in 0..1500
     {
-      lxf_flux::rho_lxf_flux_f32(&mut f_curr.rho, &u_curr, dt/dx);
-      lxf_flux::mnt_lxf_flux_f32(&mut f_curr.mnt, &u_curr, c0, dt/dx);
-      lxf_flux::bz_lxf_flux_f32(&mut f_curr.bz, &u_curr, dt/dx);
+      rusanov_flux::rho_rusanov_flux_f32(&mut f_curr.rho, &u_curr, c0, dt/dx);
+      rusanov_flux::mnt_rusanov_flux_f32(&mut f_curr.mnt, &u_curr, c0, dt/dx);
+      rusanov_flux::bz_rusanov_flux_f32(&mut f_curr.bz, &u_curr, c0, dt/dx);
 
       mesh_fn::f_diff_f32(&mut f_curr.rho);
       mesh_fn::f_diff_f32(&mut f_curr.mnt);
