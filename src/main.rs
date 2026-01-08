@@ -11,6 +11,7 @@ const dt: f32           = 0.5f32;
 mod mesh_st;
 mod mesh_fn;
 mod central_flux;
+mod lxf_flux;
 
 fn rho_init_pulse (
   rho: &mut [f32], flat: f32, bump: f32, center: usize, spread: usize)
@@ -84,19 +85,13 @@ pub fn main() {
     // main loop
     for _ in 0..20
     {
-      central_flux::rho_central_flux_f32(&mut f_curr.rho, &u_curr);
-      central_flux::mnt_central_flux_f32(&mut f_curr.mnt, &u_curr, c0);
-      central_flux::bz_central_flux_f32(&mut f_curr.bz, &u_curr);
+      central_flux::rho_central_flux_f32(&mut f_curr.rho, &u_curr, dt/dx);
+      central_flux::mnt_central_flux_f32(&mut f_curr.mnt, &u_curr, c0, dt/dx);
+      central_flux::bz_central_flux_f32(&mut f_curr.bz, &u_curr, dt/dx);
 
-      // println!("mnt flux:");
-      // debug_mesh_print(f_curr.mnt);
-      
       mesh_fn::f_diff_f32(&mut f_curr.rho);
       mesh_fn::f_diff_f32(&mut f_curr.mnt);
       mesh_fn::f_diff_f32(&mut f_curr.bz);
-
-      // println!("mnt diff flux:");
-      // debug_mesh_print(f_curr.mnt);
 
       mesh_fn::u_advance_f32(&mut u_next.rho, &u_curr.rho, &f_curr.rho, dt/dx);
       mesh_fn::u_advance_f32(&mut u_next.mnt, &u_curr.mnt, &f_curr.mnt, dt/dx);
@@ -113,7 +108,6 @@ pub fn main() {
 
       (u_curr, u_next ) = (u_next , u_curr);
     }
-    
   }
 
   debug_mesh_print(&u_curr.rho);
