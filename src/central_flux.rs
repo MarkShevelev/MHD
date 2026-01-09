@@ -16,8 +16,8 @@ pub fn mnt_central_flux_f32 (f: &mut [f32], u: &Uf32, c0: f32, d: f32)
   let bz_wins  = u.bz.windows(2);
 
   for ((rho_win, bz_win), f_val) in rho_wins.zip(bz_wins).zip(f.iter_mut()) {
-    let left_f  = rho_win[0] * c0 + bz_win[0] * bz_win[0] * 0.5;
-    let right_f = rho_win[1] * c0 + bz_win[1] * bz_win[1] * 0.5;
+    let left_f  = rho_win[0] * c0 * c0 + bz_win[0] * bz_win[0] * 0.5;
+    let right_f = rho_win[1] * c0 * c0 + bz_win[1] * bz_win[1] * 0.5;
     *f_val = (left_f + right_f) / 2.0f32;
   }
 }
