@@ -33,3 +33,14 @@ pub fn u_advance_f32 (next: &mut Uf32, curr: &Uf32, flow: &Uf32, d: f32)
     *bz_next  = *bz_curr  - d * (bz_f[1]  - bz_f[0]);
   }
 }
+
+pub fn debug_print(u: &Uf32)
+{
+  println!("{:>8} {:>8} {:>8} {:>8}","idx", "rho", "mnt", "bz");
+  let size = u.rho.len();
+  for i in 0..size
+  {
+    println!("{:>8} {:>8.5} {:>8.5} {:>8.5}", i, u.rho[i], u.mnt[i], u.bz[i]);
+  }
+}
+
