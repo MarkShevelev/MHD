@@ -38,7 +38,7 @@ for i, filename in enumerate(files):
     label = parts[-2] if len(parts) > 2 else filename
 
     # Load data for the current file
-    h, rho, mnt, bz = np.loadtxt(filename, unpack=True, skiprows=1)
+    h, rho, mnt, bz = np.loadtxt(filename, unpack=True, skiprows=3)
     v = mnt / rho
     
     color = plot_colors[i]
