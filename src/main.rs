@@ -3,10 +3,6 @@
 #![allow(unused_variables)]
 
 const MESH_SIZE: usize  = 1024usize;
-#[allow(non_upper_case_globals)]
-const dx: f32           = 1.0f32;
-#[allow(non_upper_case_globals)]
-const dt: f32           = 0.5f32;
 
 mod mesh_st;
 mod mesh_fn;
@@ -60,22 +56,65 @@ impl UVecf32
   }
 }
 
-pub fn debug_mesh_print(u: &mesh_st::Uf32)
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+#[command(version, about = "CLA --c0 0.5 --dt 0.5 --dx 1.0 --iter 1")]
+struct Args {
+    /// Must be > 0 (default: 1.0)
+    #[arg(long, default_value_t = 0.5, value_parser = validate_gt_zero_f32)]
+    c0: f32,
+
+    /// Must be > 0 (default: 0.5)
+    #[arg(long, default_value_t = 0.5, value_parser = validate_gt_zero_f32)]
+    dt: f32,
+
+    /// Must be > 0 (default: 1.0)
+    #[arg(long, default_value_t = 1.0, value_parser = validate_gt_zero_f32)]
+    dx: f32,
+
+    /// Must be > 0 (default: 1)
+    #[arg(long, default_value_t = 1, value_parser = validate_gt_zero_u32)]
+    iter: u32,
+}
+
+// Validation for f32 parameters
+fn validate_gt_zero_f32(s: &str) -> Result<f32, String> {
+    let val: f32 = s.parse().map_err(|_| format!("`{}` is not a valid number", s))?;
+    if val > 0.0 {
+        Ok(val)
+    } else {
+        Err(format!("Value must be greater than 0, found {}", val))
+    }
+}
+
+// Validation for u32 parameters
+fn validate_gt_zero_u32(s: &str) -> Result<u32, String> {
+    let val: u32 = s.parse().map_err(|_| format!("`{}` is not a valid integer", s))?;
+    if val > 0 {
+        Ok(val)
+    } else {
+        Err(format!("Repeat must be at least 1, found {}", val))
+    }
+}
+
+fn args_debug_print(args: &Args)
 {
-  println!("{:>5} {:>8} {:>8} {:>8}","iter", "rho", "mnt", "bz");
-  let size = u.rho.len();
-  for i in 0..size
-  {
-    println!("{:5} {:>8.5} {:>8.5} {:>8.5}", i, u.rho[i], u.mnt[i], u.bz[i]);
-  }
+  println!("{:>8} {:>8} {:>8} {:>8}","iter", "c0", "dt", "dx");
+  println!("{:8} {:>8.5} {:>8.5} {:>8.5}", args.iter, args.c0, args.dt, args.dx);
 }
 
 pub fn main() {
+  let args = Args::parse();
+
   let mut uvec_curr = UVecf32::new(MESH_SIZE + 2);
   let mut uvec_next = UVecf32::new(MESH_SIZE + 2);
   let mut fvec_curr = UVecf32::new(MESH_SIZE + 1);
 
-  let c0 = 0.5f32;
+  let c0   = args.c0;
+  let dt   = args.dt;
+  let dx   = args.dx;
+  let iter = args.iter;
   let mut u_curr = mesh_st::Uf32::new(&mut uvec_curr.rho, &mut uvec_curr.mnt, &mut uvec_curr.bz);
   let mut u_next = mesh_st::Uf32::new(&mut uvec_next.rho, &mut uvec_next.mnt, &mut uvec_next.bz);
   let mut f_curr = mesh_st::Uf32::new(&mut fvec_curr.rho, &mut fvec_curr.mnt, &mut fvec_curr.bz);
@@ -87,12 +126,11 @@ pub fn main() {
 
   { // cacl_flux -> apply_flux -> calc_bu -> swap
     // main loop
-    for _ in 0..1
+    for _ in 0..iter
     {
       // lxf_flux::lxf_flux_f32(&mut f_curr, &u_curr, c0, dt/dx);
       // rusanov_flux::rusanov_flux_f32(&mut f_curr, &u_curr, c0, dt/dx);
       roe_flux::roe_flux_f32(&mut f_curr, &u_curr, c0, dt/dx);
-
       mesh_fn::u_advance_f32(&mut u_next, &u_curr, &f_curr, dt/dx);
 
       u_next.rho[0] = u_next.rho[1];
@@ -108,5 +146,6 @@ pub fn main() {
     }
   }
 
-  debug_mesh_print(&u_curr);
+  args_debug_print(&args);
+  mesh_fn::debug_print(&u_curr);
 }
