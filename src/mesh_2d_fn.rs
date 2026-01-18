@@ -3,8 +3,8 @@ pub fn transpose_blocked_f32(dst: &mut [f32], src: &[f32], rows: usize, cols: us
   for i in (0..rows).step_by(block_size) {
     for j in (0..cols).step_by(block_size) {
       // Process the B x B block
-      for ii in i..usize::min(i + block_size, rows) {
-        for jj in j..usize::min(j + block_size, cols) {
+      for ii in i..i + block_size {
+        for jj in j..j + block_size {
           dst[jj * rows + ii] = src[ii * cols + jj];
         }
       }
