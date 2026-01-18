@@ -72,10 +72,6 @@ $RECYCLE.BIN/
 # Тестирование и бенчмарки
 # ===============================
 
-# Criterion бенчмарки
-benches/*.rs
-benches/*.txt
-
 # Тестовые данные
 test_data/
 *.test
