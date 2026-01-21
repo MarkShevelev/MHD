@@ -1,3 +1,5 @@
+use super::mesh_st::{Uf32};
+
 pub fn transpose_blocked_f32(dst: &mut [f32], src: &[f32], rows: usize, cols: usize) {
   let block_size = 32;
   for i in (0..rows).step_by(block_size) {
@@ -67,6 +69,7 @@ pub fn transpose_blocked_simd_f32(dst: &mut [f32], src: &[f32], rows: usize, col
   for i in (0..rows).step_by(b) {
     for j in (0..cols).step_by(b) {
       unsafe {
+        // call SIMD kernel
         transpose_8x8_f32_avx(
           src[i * cols + j..].as_ptr(),
           dst[j * rows + i..].as_mut_ptr(),
@@ -78,3 +81,17 @@ pub fn transpose_blocked_simd_f32(dst: &mut [f32], src: &[f32], rows: usize, col
   }
 }
 
+pub fn debug_print_2d(u: &Uf32, rows: usize, cols: usize)
+{
+  println!("{:>8} {:>8} {:>8} {:>8} {:>8}","row", "col", "rho", "mnt", "bz");
+  for r in 0..rows
+  {
+    for c in 0..cols
+    {
+      println!("{:>8} {:>8} {:>8.5} {:>8.5} {:>8.5}", r, c, 
+        u.rho[r * cols + c],
+        u.mnt[r * cols + c],
+        u.bz [r * cols + c]);
+    }
+  }
+}

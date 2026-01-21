@@ -2,10 +2,13 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
-const MESH_SIZE: usize  = 1024usize;
+const BLOCK_SIZE: usize = 32usize;
+const ROW_SIZE: usize   = 32usize;
+const COL_SIZE: usize   = 64usize;
 
 mod mesh_st;
 mod mesh_fn;
+mod mesh_2d_fn;
 mod central_flux;
 mod lxf_flux;
 mod rusanov_flux;
@@ -107,45 +110,99 @@ fn args_debug_print(args: &Args)
 pub fn main() {
   let args = Args::parse();
 
-  let mut uvec_curr = UVecf32::new(MESH_SIZE + 2);
-  let mut uvec_next = UVecf32::new(MESH_SIZE + 2);
-  let mut fvec_curr = UVecf32::new(MESH_SIZE + 1);
-
   let c0   = args.c0;
   let dt   = args.dt;
   let dx   = args.dx;
   let iter = args.iter;
-  let mut u_curr = mesh_st::Uf32::new(&mut uvec_curr.rho, &mut uvec_curr.mnt, &mut uvec_curr.bz);
-  let mut u_next = mesh_st::Uf32::new(&mut uvec_next.rho, &mut uvec_next.mnt, &mut uvec_next.bz);
-  let mut f_curr = mesh_st::Uf32::new(&mut fvec_curr.rho, &mut fvec_curr.mnt, &mut fvec_curr.bz);
 
-  rho_init_pulse(&mut u_curr.rho, 1.0f32, 2.0f32, MESH_SIZE >> 1, MESH_SIZE >> 4);
-  // mnt zero
-  // bz  zero
-  // fluxes are zero
+  let mut uvec_curr_2d = UVecf32::new(BLOCK_SIZE * BLOCK_SIZE * (ROW_SIZE + 2) * (COL_SIZE + 2));
+  let mut uvec_next_2d = UVecf32::new(BLOCK_SIZE * BLOCK_SIZE * (ROW_SIZE + 2) * (COL_SIZE + 2));
+  let mut fvec_2d      = UVecf32::new(BLOCK_SIZE * BLOCK_SIZE * (ROW_SIZE + 1) * (COL_SIZE + 1));
+
+  let mut u_curr = mesh_st::Uf32 { 
+    rho: &mut uvec_curr_2d.rho,
+    mnt: &mut uvec_curr_2d.mnt,
+    bz:  &mut uvec_curr_2d.bz };
+
+  let mut u_next = mesh_st::Uf32 { 
+    rho: &mut uvec_next_2d.rho,
+    mnt: &mut uvec_next_2d.mnt,
+    bz:  &mut uvec_next_2d.bz };
+
+  let f = mesh_st::Uf32 { 
+    rho: &mut fvec_2d.rho,
+    mnt: &mut fvec_2d.mnt,
+    bz:  &mut fvec_2d.bz };
+
+  let ustride = BLOCK_SIZE * (COL_SIZE + 2);
+  let urow_count = ROW_SIZE * BLOCK_SIZE;
+  let ustart = BLOCK_SIZE - 1;
+  let uend = BLOCK_SIZE * (COL_SIZE + 1) + 1;
+
+  let fstride = BLOCK_SIZE * (COL_SIZE + 1);
+  let frow_count = ROW_SIZE * BLOCK_SIZE;
+  let fstart = 0usize;
+  let fend = BLOCK_SIZE * COL_SIZE + 1;
+
+  rho_init_pulse(&mut u_curr.rho, 1.0f32, 2.0f32, BLOCK_SIZE * COL_SIZE >> 1, BLOCK_SIZE * COL_SIZE >> 4);
 
   { // cacl_flux -> apply_flux -> calc_bu -> swap
     // main loop
     for _ in 0..iter
     {
-      // lxf_flux::lxf_flux_f32(&mut f_curr, &u_curr, c0, dt/dx);
-      // rusanov_flux::rusanov_flux_f32(&mut f_curr, &u_curr, c0, dt/dx);
-      roe_flux::roe_flux_f32(&mut f_curr, &u_curr, c0, dt/dx);
-      mesh_fn::u_advance_f32(&mut u_next, &u_curr, &f_curr, dt/dx);
+      let u_curr_rho_rows = u_curr.rho.chunks_exact_mut(ustride);
+      let u_curr_mnt_rows = u_curr.mnt.chunks_exact_mut(ustride);
+      let u_curr_bz_rows  = u_curr.bz.chunks_exact_mut( ustride);
 
-      u_next.rho[0] = u_next.rho[1];
-      u_next.rho[u_next.rho.len() - 1] = u_next.rho[u_next.rho.len() - 2];
+      let f_rho_rows = f.rho.chunks_exact_mut(fstride);
+      let f_mnt_rows = f.mnt.chunks_exact_mut(fstride);
+      let f_bz_rows  = f.bz.chunks_exact_mut( fstride);
 
-      u_next.mnt[0] = u_next.mnt[1];
-      u_next.mnt[u_next.mnt.len() - 1] = u_next.mnt[u_next.mnt.len() - 2];
+      let u_next_rho_rows = u_next.rho.chunks_exact_mut(ustride);
+      let u_next_mnt_rows = u_next.mnt.chunks_exact_mut(ustride);
+      let u_next_bz_rows  = u_next.bz.chunks_exact_mut( ustride);
 
-      u_next.bz[0] = u_next.bz[1];
-      u_next.bz[u_next.bz.len() - 1] = u_next.bz[u_next.bz.len() - 2];
+      let zipped = 
+        u_curr_rho_rows.zip(u_curr_mnt_rows).zip(u_curr_bz_rows)
+        .zip(f_rho_rows).zip(f_mnt_rows).zip(f_bz_rows)
+        .zip(u_next_rho_rows).zip(u_next_mnt_rows).zip(u_next_bz_rows);
+
+      for ((((((((uc_rho, uc_mnt), uc_bz), f_rho), f_mnt), f_bz), un_rho), un_mnt), un_bz) in zipped
+      {
+        let u_curr_1d     = mesh_st::Uf32::new(
+          &mut uc_rho[ustart..uend],
+          &mut uc_mnt[ustart..uend],
+          &mut uc_bz [ustart..uend]);
+        
+        let mut f_1d      = mesh_st::Uf32::new(
+          &mut f_rho[fstart..fend],
+          &mut f_mnt[fstart..fend],
+          &mut f_bz [fstart..fend]);
+
+        let mut u_next_1d = mesh_st::Uf32::new(
+          &mut un_rho[ustart..uend],
+          &mut un_mnt[ustart..uend],
+          &mut un_bz [ustart..uend]);
+
+        // lxf_flux::lxf_flux_f32(&mut f_curr, &u_curr, c0, dt/dx);
+        // rusanov_flux::rusanov_flux_f32(&mut f_curr, &u_curr, c0, dt/dx);
+        roe_flux::roe_flux_f32(&mut f_1d, &u_curr_1d, c0, dt/dx);
+        mesh_fn::u_advance_f32(&mut u_next_1d, &u_curr_1d, &f_1d, dt/dx);
+
+        u_next_1d.rho[0] = u_next_1d.rho[1];
+        u_next_1d.rho[u_next_1d.rho.len() - 1] = u_next_1d.rho[u_next_1d.rho.len() - 2];
+
+        u_next_1d.mnt[0] = u_next_1d.mnt[1];
+        u_next_1d.mnt[u_next_1d.mnt.len() - 1] = u_next_1d.mnt[u_next_1d.mnt.len() - 2];
+
+        u_next_1d.bz[0] = u_next_1d.bz[1];
+        u_next_1d.bz[u_next_1d.bz.len() - 1] = u_next_1d.bz[u_next_1d.bz.len() - 2];
+      }
 
       (u_curr, u_next ) = (u_next , u_curr);
     }
   }
 
   args_debug_print(&args);
-  mesh_fn::debug_print(&u_curr);
+  mesh_2d_fn::debug_print_2d(&u_curr, BLOCK_SIZE * ROW_SIZE, BLOCK_SIZE * COL_SIZE);
 }
