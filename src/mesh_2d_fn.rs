@@ -1,5 +1,3 @@
-use super::mesh_st::{Uf32};
-
 pub fn transpose_blocked_f32(dst: &mut [f32], src: &[f32], rows: usize, cols: usize) {
   let block_size = 32;
   for i in (0..rows).step_by(block_size) {
@@ -81,7 +79,9 @@ pub fn transpose_blocked_simd_f32(dst: &mut [f32], src: &[f32], rows: usize, col
   }
 }
 
-pub fn debug_print_2d(u: &Uf32, rows: usize, cols: usize)
+use crate::mesh_st::{Uf32View};
+
+pub fn debug_print_2d(u: Uf32View, rows: usize, cols: usize)
 {
   println!("{:>8} {:>8} {:>8} {:>8} {:>8}","row", "col", "rho", "mnt", "bz");
   for r in 0..rows
