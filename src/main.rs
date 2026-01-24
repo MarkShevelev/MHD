@@ -14,6 +14,8 @@ mod lxf_flux;
 mod rusanov_flux;
 mod roe_flux;
 
+use mesh_st::{Uf32, Uf32View};
+
 fn rho_init_pulse (
   rho: &mut [f32], flat: f32, bump: f32, center: usize, spread: usize)
 {
@@ -119,17 +121,17 @@ pub fn main() {
   let mut uvec_next_2d = UVecf32::new(BLOCK_SIZE * BLOCK_SIZE * (ROW_SIZE + 2) * (COL_SIZE + 2));
   let mut fvec_2d      = UVecf32::new(BLOCK_SIZE * BLOCK_SIZE * (ROW_SIZE + 1) * (COL_SIZE + 1));
 
-  let mut u_curr = mesh_st::Uf32 { 
+  let mut u_curr = Uf32 { 
     rho: &mut uvec_curr_2d.rho,
     mnt: &mut uvec_curr_2d.mnt,
     bz:  &mut uvec_curr_2d.bz };
 
-  let mut u_next = mesh_st::Uf32 { 
+  let mut u_next = Uf32 { 
     rho: &mut uvec_next_2d.rho,
     mnt: &mut uvec_next_2d.mnt,
     bz:  &mut uvec_next_2d.bz };
 
-  let f = mesh_st::Uf32 { 
+  let f = Uf32 { 
     rho: &mut fvec_2d.rho,
     mnt: &mut fvec_2d.mnt,
     bz:  &mut fvec_2d.bz };
@@ -169,34 +171,41 @@ pub fn main() {
 
       for ((((((((uc_rho, uc_mnt), uc_bz), f_rho), f_mnt), f_bz), un_rho), un_mnt), un_bz) in zipped
       {
-        let u_curr_1d     = mesh_st::Uf32::new(
-          &mut uc_rho[ustart..uend],
-          &mut uc_mnt[ustart..uend],
-          &mut uc_bz [ustart..uend]);
-        
-        let mut f_1d      = mesh_st::Uf32::new(
-          &mut f_rho[fstart..fend],
-          &mut f_mnt[fstart..fend],
-          &mut f_bz [fstart..fend]);
+        {
+          let u_curr_1d     = Uf32View::new_with_slice(
+            uc_rho, uc_mnt, uc_bz, ustart, uend);
+          let f_1d      = Uf32::new_with_slice(
+            f_rho, f_mnt, f_bz, fstart, fend);
 
-        let mut u_next_1d = mesh_st::Uf32::new(
-          &mut un_rho[ustart..uend],
-          &mut un_mnt[ustart..uend],
-          &mut un_bz [ustart..uend]);
+          // lxf_flux::lxf_flux_f32(&mut f_curr, &u_curr, c0, dt/dx);
+          // rusanov_flux::rusanov_flux_f32(&mut f_curr, &u_curr, c0, dt/dx);
+          roe_flux::roe_flux_f32(f_1d, u_curr_1d, c0, dt/dx);
+        }
 
-        // lxf_flux::lxf_flux_f32(&mut f_curr, &u_curr, c0, dt/dx);
-        // rusanov_flux::rusanov_flux_f32(&mut f_curr, &u_curr, c0, dt/dx);
-        roe_flux::roe_flux_f32(&mut f_1d, &u_curr_1d, c0, dt/dx);
-        mesh_fn::u_advance_f32(&mut u_next_1d, &u_curr_1d, &f_1d, dt/dx);
+        {
+          let u_curr_1d = Uf32View::new_with_slice(
+            uc_rho, uc_mnt, uc_bz, ustart, uend);
+          let u_next_1d = Uf32::new_with_slice(
+            un_rho, un_mnt, un_bz, ustart, uend);
+          let f_1d = Uf32View::new_with_slice(
+            f_rho, f_mnt, f_bz, fstart, fend);
 
-        u_next_1d.rho[0] = u_next_1d.rho[1];
-        u_next_1d.rho[u_next_1d.rho.len() - 1] = u_next_1d.rho[u_next_1d.rho.len() - 2];
+          mesh_fn::u_advance_f32(u_next_1d, u_curr_1d, f_1d, dt/dx);
+        }
 
-        u_next_1d.mnt[0] = u_next_1d.mnt[1];
-        u_next_1d.mnt[u_next_1d.mnt.len() - 1] = u_next_1d.mnt[u_next_1d.mnt.len() - 2];
+        {
+          let u_next_1d = Uf32::new_with_slice(
+            un_rho, un_mnt, un_bz, ustart, uend);
 
-        u_next_1d.bz[0] = u_next_1d.bz[1];
-        u_next_1d.bz[u_next_1d.bz.len() - 1] = u_next_1d.bz[u_next_1d.bz.len() - 2];
+          u_next_1d.rho[0] = u_next_1d.rho[1];
+          u_next_1d.rho[u_next_1d.rho.len() - 1] = u_next_1d.rho[u_next_1d.rho.len() - 2];
+
+          u_next_1d.mnt[0] = u_next_1d.mnt[1];
+          u_next_1d.mnt[u_next_1d.mnt.len() - 1] = u_next_1d.mnt[u_next_1d.mnt.len() - 2];
+
+          u_next_1d.bz[0] = u_next_1d.bz[1];
+          u_next_1d.bz[u_next_1d.bz.len() - 1] = u_next_1d.bz[u_next_1d.bz.len() - 2];
+        }
       }
 
       (u_curr, u_next ) = (u_next , u_curr);
@@ -204,5 +213,5 @@ pub fn main() {
   }
 
   args_debug_print(&args);
-  mesh_2d_fn::debug_print_2d(&u_curr, BLOCK_SIZE * ROW_SIZE, BLOCK_SIZE * COL_SIZE);
+  mesh_2d_fn::debug_print_2d(Uf32View::from(&u_curr), BLOCK_SIZE * ROW_SIZE, BLOCK_SIZE * COL_SIZE);
 }
