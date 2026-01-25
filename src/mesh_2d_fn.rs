@@ -81,17 +81,18 @@ pub fn transpose_blocked_simd_f32(dst: &mut [f32], src: &[f32], rows: usize, col
 
 use crate::mesh_st::{U2dViewf32};
 
-pub fn debug_print_2d(u: U2dViewf32, rows: usize, cols: usize)
+pub fn debug_print_2d(u: U2dViewf32)
 {
   println!("{:>8} {:>8} {:>8} {:>8} {:>8}","row", "col", "rho", "mnt", "bz");
-  for r in 0..rows
+  for r in u.cfg.offset_rows..(u.cfg.offset_rows + u.cfg.process_rows)
   {
-    for c in 0..cols
+    for c in u.cfg.offset_cols..(u.cfg.offset_cols + u.cfg.process_cols)
     {
-      println!("{:>8} {:>8} {:>8.5} {:>8.5} {:>8.5}", r, c, 
-        u.rho[r * cols + c],
-        u.mnt[r * cols + c],
-        u.bz [r * cols + c]);
+      println!("{:>8} {:>8} {:>8.5} {:>8.5} {:>8.5}",
+        r - u.cfg.offset_rows, c - u.cfg.offset_cols,
+        u.rho[r * u.cfg.total_cols + c],
+        u.mnt[r * u.cfg.total_cols + c],
+        u.bz [r * u.cfg.total_cols + c]);
     }
   }
 }
