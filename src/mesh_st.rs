@@ -54,12 +54,62 @@ impl<'a> Uf32View<'a>
 }
 
 impl<'a, 'b> From<&'a Uf32<'b>> for Uf32View<'a> {
-    fn from(src: &'a Uf32<'b>) -> Self {
-        Uf32View {
-            rho: src.rho,
-            mnt: src.mnt,
-            bz:  src.bz,
-        }
+  fn from(src: &'a Uf32<'b>) -> Self {
+    Uf32View {
+      rho: src.rho,
+      mnt: src.mnt,
+      bz:  src.bz,
     }
+  }
 }
 
+pub struct U2df32<'a>
+{
+  pub rho: &'a mut [f32],
+  pub mnt: &'a mut [f32],
+  pub bz : &'a mut [f32],
+  pub rows: usize,
+  pub cols: usize,
+}
+
+impl<'a> U2df32<'a>
+{
+  pub fn new (
+    rho: &'a mut [f32], mnt: &'a mut [f32], bz: &'a mut [f32],
+    rows: usize, cols: usize) -> Self
+  {
+    Self { rho, mnt, bz, rows, cols }
+  }
+}
+
+#[derive(Clone, Copy)]
+pub struct U2dViewf32<'a>
+{
+  pub rho: &'a [f32],
+  pub mnt: &'a [f32],
+  pub bz : &'a [f32],
+  pub rows: usize,
+  pub cols: usize,
+}
+
+impl<'a> U2dViewf32<'a>
+{
+  pub fn new (
+    rho: &'a [f32], mnt: &'a [f32], bz: &'a [f32],
+    rows: usize, cols: usize) -> Self
+  {
+    Self { rho, mnt, bz, rows, cols }
+  }
+}
+
+impl<'a, 'b> From<&'a U2df32<'b>> for U2dViewf32<'a> {
+  fn from(src: &'a U2df32<'b>) -> Self {
+    U2dViewf32 {
+      rho: src.rho,
+      mnt: src.mnt,
+      bz:  src.bz,
+      rows: src.rows,
+      cols: src.cols,
+    }
+  }
+}
