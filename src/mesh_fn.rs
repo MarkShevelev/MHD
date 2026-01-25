@@ -1,4 +1,4 @@
-use super::mesh_st::{Uf32};
+use crate::mesh_st::{Uf32, Uf32View};
 
 pub fn slice_advance_f32 (next: &mut [f32], curr: &[f32], flow: &[f32], d: f32)
 {
@@ -9,7 +9,7 @@ pub fn slice_advance_f32 (next: &mut [f32], curr: &[f32], flow: &[f32], d: f32)
   }
 }
 
-pub fn u_advance_f32 (next: &mut Uf32, curr: &Uf32, flow: &Uf32, d: f32)
+pub fn u_advance_f32 (next: Uf32, curr: Uf32View, flow: Uf32View, d: f32)
 {
   let u_next = next.rho.iter_mut().skip(1)
     .zip(next.mnt.iter_mut().skip(1))
@@ -34,7 +34,7 @@ pub fn u_advance_f32 (next: &mut Uf32, curr: &Uf32, flow: &Uf32, d: f32)
   }
 }
 
-pub fn debug_print(u: &Uf32)
+pub fn debug_print(u: Uf32View)
 {
   println!("{:>8} {:>8} {:>8} {:>8}","idx", "rho", "mnt", "bz");
   let size = u.rho.len();

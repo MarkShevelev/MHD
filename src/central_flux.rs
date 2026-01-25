@@ -1,6 +1,6 @@
-use super::mesh_st::{Uf32};
+use crate::mesh_st::{Uf32, Uf32View};
 
-pub fn centarl_flux_f32 (f: &mut Uf32, u: &Uf32, c0: f32, d: f32)
+pub fn centarl_flux_f32 (f: &mut Uf32, u: &Uf32View, c0: f32, d: f32)
 {
   let inputs = u.rho.windows(2)
     .zip(u.mnt.windows(2))
