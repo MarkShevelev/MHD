@@ -11,11 +11,12 @@ mod lxf_flux;
 mod rusanov_flux;
 mod roe_flux;
 
-use mesh_st::{Uf32, Uf32View, U2df32, U2dViewf32};
+use mesh_st::{Uf32, Uf32View, U2dCfg, U2df32, U2dViewf32};
 
 fn rho_init_pulse (
   rho: &mut [f32], flat: f32, bump: f32, center: usize, spread: usize)
 {
+
   for el in rho.iter_mut()
   {
     *el = flat;
@@ -27,6 +28,18 @@ fn rho_init_pulse (
   for i in beg..end
   {
     rho[i] = bump;
+  }
+}
+
+fn rho_init_pulse_2d (
+  u: &mut U2df32, flat: f32, bump: f32, center: usize, spread: usize)
+{
+  let u_rho_rows = u.rho
+    .chunks_exact_mut(u.cfg.total_cols);
+
+  for rho in u_rho_rows
+  {
+    rho_init_pulse(rho, flat, bump, center, spread);
   }
 }
 
@@ -111,31 +124,20 @@ struct U2dVecf32
   rho: Vec<f32>,
   mnt: Vec<f32>,
   bz : Vec<f32>,
-  block_size: usize,
-  block_rows: usize,
-  block_cols: usize,
-  offset_beg: usize,
-  offset_end: usize,
+  cfg: U2dCfg,
 }
 
 impl U2dVecf32
 {
   pub fn new (
-    block_size: usize,
-    block_rows: usize,
-    block_cols: usize,
-    offset_beg: usize,
-    offset_end: usize) -> Self
+    cfg: U2dCfg) -> Self
   {
+    let mesh_size = cfg.total_rows * cfg.total_cols;
     Self {
-      rho: vec![0.0f32; block_size * block_size * block_rows * block_cols],
-      mnt: vec![0.0f32; block_size * block_size * block_rows * block_cols],
-      bz : vec![0.0f32; block_size * block_size * block_rows * block_cols],
-      block_size: block_size,
-      block_rows: block_rows,
-      block_cols: block_cols,
-      offset_beg: offset_beg,
-      offset_end: offset_end,
+      rho: vec![0.0f32; mesh_size],
+      mnt: vec![0.0f32; mesh_size],
+      bz : vec![0.0f32; mesh_size],
+      cfg: cfg
     }
   }
 }
@@ -154,64 +156,94 @@ pub fn main() {
   let dx   = args.dx;
   let iter = args.iter;
 
-  let mut uvec_curr_2d = U2dVecf32::new(
-    BLOCK_SIZE, BLOCK_ROWS + 2, BLOCK_COLS + 2,
-    1, 1);
-  let mut uvec_next_2d = U2dVecf32::new(
-    BLOCK_SIZE, BLOCK_ROWS + 2, BLOCK_COLS + 2,
-    1, 1);
-  let mut fvec_2d = U2dVecf32::new(
-    BLOCK_SIZE, BLOCK_ROWS + 1, BLOCK_COLS + 1,
-    0, 1);
+  let ucfg = U2dCfg { 
+    total_rows : BLOCK_SIZE * (BLOCK_ROWS + 2),
+    total_cols : BLOCK_SIZE * (BLOCK_COLS + 2),
+    offset_rows: BLOCK_SIZE,
+    offset_cols: BLOCK_SIZE - 1,
+    process_rows: BLOCK_SIZE * BLOCK_ROWS,
+    process_cols: BLOCK_SIZE * BLOCK_COLS + 2};
+
+  let fcfg = U2dCfg { 
+    total_rows : BLOCK_SIZE * (BLOCK_ROWS + 1),
+    total_cols : BLOCK_SIZE * (BLOCK_COLS + 1),
+    offset_rows: BLOCK_SIZE,
+    offset_cols: 0,
+    process_rows: BLOCK_SIZE * BLOCK_ROWS,
+    process_cols: BLOCK_SIZE * BLOCK_COLS + 1};
+
+  let mut uvec_curr_2d = U2dVecf32::new(ucfg);
+  let mut uvec_next_2d = U2dVecf32::new(ucfg);
+  let mut fvec_2d      = U2dVecf32::new(fcfg);
 
   let mut u_curr = U2df32 { 
     rho: &mut uvec_curr_2d.rho,
     mnt: &mut uvec_curr_2d.mnt,
     bz:  &mut uvec_curr_2d.bz,
-    rows: BLOCK_SIZE * (ROW_SIZE + 2),
-    cols: BLOCK_SIZE * (COL_SIZE + 2), };
-
+    cfg: ucfg,};
   let mut u_next = U2df32 { 
     rho: &mut uvec_next_2d.rho,
     mnt: &mut uvec_next_2d.mnt,
     bz:  &mut uvec_next_2d.bz,
-    rows: BLOCK_SIZE * (ROW_SIZE + 2),
-    cols: BLOCK_SIZE * (COL_SIZE + 2), };
+    cfg: ucfg,};
 
   let f = U2df32 { 
     rho: &mut fvec_2d.rho,
     mnt: &mut fvec_2d.mnt,
     bz:  &mut fvec_2d.bz,
-    rows: BLOCK_SIZE * (ROW_SIZE + 1),
-    cols: BLOCK_SIZE * (COL_SIZE + 1), };
+    cfg: ucfg,};
 
-  let ustride = BLOCK_SIZE * (COL_SIZE + 2);
-  let urow_count = ROW_SIZE * BLOCK_SIZE;
-  let ustart = BLOCK_SIZE - 1;
-  let uend = BLOCK_SIZE * (COL_SIZE + 1) + 1;
 
-  let fstride = BLOCK_SIZE * (COL_SIZE + 1);
-  let frow_count = ROW_SIZE * BLOCK_SIZE;
-  let fstart = 0usize;
-  let fend = BLOCK_SIZE * COL_SIZE + 1;
-
-  rho_init_pulse(&mut u_curr.rho, 1.0f32, 2.0f32, BLOCK_SIZE * COL_SIZE >> 1, BLOCK_SIZE * COL_SIZE >> 4);
+  rho_init_pulse_2d(
+    &mut u_curr, 1.0f32, 2.0f32, 
+    (ucfg.total_cols) >> 1,
+    (ucfg.process_cols) >> 4);
 
   { // cacl_flux -> apply_flux -> calc_bu -> swap
     // main loop
     for _ in 0..iter
     {
-      let u_curr_rho_rows = u_curr.rho.chunks_exact_mut(ustride);
-      let u_curr_mnt_rows = u_curr.mnt.chunks_exact_mut(ustride);
-      let u_curr_bz_rows  = u_curr.bz.chunks_exact_mut( ustride);
+      let ustart = ucfg.offset_cols;
+      let uend   = ucfg.offset_cols + ucfg.process_cols;
 
-      let f_rho_rows = f.rho.chunks_exact_mut(fstride);
-      let f_mnt_rows = f.mnt.chunks_exact_mut(fstride);
-      let f_bz_rows  = f.bz.chunks_exact_mut( fstride);
+      let fstart = fcfg.offset_cols;
+      let fend   = fcfg.offset_cols + fcfg.process_cols;
 
-      let u_next_rho_rows = u_next.rho.chunks_exact_mut(ustride);
-      let u_next_mnt_rows = u_next.mnt.chunks_exact_mut(ustride);
-      let u_next_bz_rows  = u_next.bz.chunks_exact_mut( ustride);
+      let u_curr_rho_rows = u_curr.rho
+        .chunks_exact_mut(ucfg.total_cols)
+        .skip(ucfg.offset_rows).take(ucfg.process_rows);
+
+      let u_curr_mnt_rows = u_curr.mnt
+        .chunks_exact_mut(ucfg.total_cols)
+        .skip(ucfg.offset_rows).take(ucfg.process_rows);
+
+      let u_curr_bz_rows  = u_curr.bz
+        .chunks_exact_mut( ucfg.total_cols)
+        .skip(ucfg.offset_rows).take(ucfg.process_rows);
+
+      let f_rho_rows = f.rho
+        .chunks_exact_mut(fcfg.total_cols)
+        .skip(fcfg.offset_rows).take(fcfg.process_rows);
+
+      let f_mnt_rows = f.mnt
+        .chunks_exact_mut(fcfg.total_cols)
+        .skip(fcfg.offset_rows).take(fcfg.process_rows);
+
+      let f_bz_rows  = f.bz
+        .chunks_exact_mut( fcfg.total_cols)
+        .skip(fcfg.offset_rows).take(fcfg.process_rows);
+
+      let u_next_rho_rows = u_next.rho
+        .chunks_exact_mut(ucfg.total_cols)
+        .skip(ucfg.offset_rows).take(ucfg.process_rows);
+
+      let u_next_mnt_rows = u_next.mnt
+        .chunks_exact_mut(ucfg.total_cols)
+        .skip(ucfg.offset_rows).take(ucfg.process_rows);
+
+      let u_next_bz_rows  = u_next.bz
+        .chunks_exact_mut(ucfg.total_cols)
+        .skip(ucfg.offset_rows).take(ucfg.process_rows);
 
       let zipped = 
         u_curr_rho_rows.zip(u_curr_mnt_rows).zip(u_curr_bz_rows)
@@ -262,5 +294,5 @@ pub fn main() {
   }
 
   args_debug_print(&args);
-  mesh_2d_fn::debug_print_2d(U2dViewf32::from(&u_curr), BLOCK_SIZE * ROW_SIZE, BLOCK_SIZE * COL_SIZE);
+  mesh_2d_fn::debug_print_2d(U2dViewf32::from(&u_curr));
 }
