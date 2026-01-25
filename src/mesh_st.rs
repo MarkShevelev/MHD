@@ -63,22 +63,45 @@ impl<'a, 'b> From<&'a Uf32<'b>> for Uf32View<'a> {
   }
 }
 
+#[derive(Clone, Copy)]
+pub struct U2dCfg
+{
+  pub total_rows  : usize,
+  pub total_cols  : usize,
+  pub offset_rows : usize,
+  pub offset_cols : usize,
+  pub process_rows: usize,
+  pub process_cols: usize,
+}
+
+#[inline]
+pub fn cfg_transpose(cfg: U2dCfg) -> U2dCfg
+{
+  U2dCfg {
+    total_rows  : cfg.total_cols,
+    total_cols  : cfg.total_rows,
+    offset_rows : cfg.offset_cols,
+    offset_cols : cfg.offset_rows,
+    process_rows: cfg.process_cols,
+    process_cols: cfg.process_rows,
+  }
+}
+
 pub struct U2df32<'a>
 {
   pub rho: &'a mut [f32],
   pub mnt: &'a mut [f32],
   pub bz : &'a mut [f32],
-  pub rows: usize,
-  pub cols: usize,
+  pub cfg: U2dCfg,
 }
 
 impl<'a> U2df32<'a>
 {
   pub fn new (
     rho: &'a mut [f32], mnt: &'a mut [f32], bz: &'a mut [f32],
-    rows: usize, cols: usize) -> Self
+    cfg: U2dCfg) -> Self
   {
-    Self { rho, mnt, bz, rows, cols }
+    Self { rho, mnt, bz, cfg }
   }
 }
 
@@ -88,17 +111,16 @@ pub struct U2dViewf32<'a>
   pub rho: &'a [f32],
   pub mnt: &'a [f32],
   pub bz : &'a [f32],
-  pub rows: usize,
-  pub cols: usize,
+  pub cfg: U2dCfg,
 }
 
 impl<'a> U2dViewf32<'a>
 {
   pub fn new (
     rho: &'a [f32], mnt: &'a [f32], bz: &'a [f32],
-    rows: usize, cols: usize) -> Self
+    cfg: U2dCfg) -> Self
   {
-    Self { rho, mnt, bz, rows, cols }
+    Self { rho, mnt, bz, cfg }
   }
 }
 
@@ -108,8 +130,7 @@ impl<'a, 'b> From<&'a U2df32<'b>> for U2dViewf32<'a> {
       rho: src.rho,
       mnt: src.mnt,
       bz:  src.bz,
-      rows: src.rows,
-      cols: src.cols,
+      cfg: src.cfg,
     }
   }
 }
