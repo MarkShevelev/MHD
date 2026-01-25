@@ -79,9 +79,9 @@ pub fn transpose_blocked_simd_f32(dst: &mut [f32], src: &[f32], rows: usize, col
   }
 }
 
-use crate::mesh_st::{Uf32View};
+use crate::mesh_st::{U2dViewf32};
 
-pub fn debug_print_2d(u: Uf32View, rows: usize, cols: usize)
+pub fn debug_print_2d(u: U2dViewf32, rows: usize, cols: usize)
 {
   println!("{:>8} {:>8} {:>8} {:>8} {:>8}","row", "col", "rho", "mnt", "bz");
   for r in 0..rows
