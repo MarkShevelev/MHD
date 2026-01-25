@@ -2,9 +2,6 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
-const BLOCK_SIZE: usize = 32usize;
-const ROW_SIZE: usize   = 32usize;
-const COL_SIZE: usize   = 64usize;
 
 mod mesh_st;
 mod mesh_fn;
@@ -14,7 +11,7 @@ mod lxf_flux;
 mod rusanov_flux;
 mod roe_flux;
 
-use mesh_st::{Uf32, Uf32View};
+use mesh_st::{Uf32, Uf32View, U2df32, U2dViewf32};
 
 fn rho_init_pulse (
   rho: &mut [f32], flat: f32, bump: f32, center: usize, spread: usize)
@@ -38,26 +35,6 @@ fn mnt_init_zero ( mnt: &mut [f32])
   for el in mnt.iter_mut()
   {
     *el = 0.0f32;
-  }
-}
-
-struct UVecf32
-{
-  rho: Vec<f32>,
-  mnt: Vec<f32>,
-  bz : Vec<f32>,
-}
-
-impl UVecf32
-{
-  pub fn new (mesh_size: usize) -> Self
-  {
-    Self
-    {
-      rho: vec![0.0f32; mesh_size],
-      mnt: vec![0.0f32; mesh_size],
-      bz : vec![0.0f32; mesh_size],
-    }
   }
 }
 
@@ -109,6 +86,66 @@ fn args_debug_print(args: &Args)
   println!("{:8} {:>8.5} {:>8.5} {:>8.5}", args.iter, args.c0, args.dt, args.dx);
 }
 
+struct UVecf32
+{
+  rho: Vec<f32>,
+  mnt: Vec<f32>,
+  bz : Vec<f32>,
+}
+
+impl UVecf32
+{
+  pub fn new (mesh_size: usize) -> Self
+  {
+    Self
+    {
+      rho: vec![0.0f32; mesh_size],
+      mnt: vec![0.0f32; mesh_size],
+      bz : vec![0.0f32; mesh_size],
+    }
+  }
+}
+
+struct U2dVecf32
+{
+  rho: Vec<f32>,
+  mnt: Vec<f32>,
+  bz : Vec<f32>,
+  block_size: usize,
+  block_rows: usize,
+  block_cols: usize,
+  offset_beg: usize,
+  offset_end: usize,
+}
+
+impl U2dVecf32
+{
+  pub fn new (
+    block_size: usize,
+    block_rows: usize,
+    block_cols: usize,
+    offset_beg: usize,
+    offset_end: usize) -> Self
+  {
+    Self {
+      rho: vec![0.0f32; block_size * block_size * block_rows * block_cols],
+      mnt: vec![0.0f32; block_size * block_size * block_rows * block_cols],
+      bz : vec![0.0f32; block_size * block_size * block_rows * block_cols],
+      block_size: block_size,
+      block_rows: block_rows,
+      block_cols: block_cols,
+      offset_beg: offset_beg,
+      offset_end: offset_end,
+    }
+  }
+}
+
+const BLOCK_SIZE: usize = 32usize;
+const BLOCK_ROWS: usize = 32usize;
+const BLOCK_COLS: usize = 64usize;
+const ROW_SIZE: usize   = 32usize;
+const COL_SIZE: usize   = 64usize;
+
 pub fn main() {
   let args = Args::parse();
 
@@ -117,24 +154,36 @@ pub fn main() {
   let dx   = args.dx;
   let iter = args.iter;
 
-  let mut uvec_curr_2d = UVecf32::new(BLOCK_SIZE * BLOCK_SIZE * (ROW_SIZE + 2) * (COL_SIZE + 2));
-  let mut uvec_next_2d = UVecf32::new(BLOCK_SIZE * BLOCK_SIZE * (ROW_SIZE + 2) * (COL_SIZE + 2));
-  let mut fvec_2d      = UVecf32::new(BLOCK_SIZE * BLOCK_SIZE * (ROW_SIZE + 1) * (COL_SIZE + 1));
+  let mut uvec_curr_2d = U2dVecf32::new(
+    BLOCK_SIZE, BLOCK_ROWS + 2, BLOCK_COLS + 2,
+    1, 1);
+  let mut uvec_next_2d = U2dVecf32::new(
+    BLOCK_SIZE, BLOCK_ROWS + 2, BLOCK_COLS + 2,
+    1, 1);
+  let mut fvec_2d = U2dVecf32::new(
+    BLOCK_SIZE, BLOCK_ROWS + 1, BLOCK_COLS + 1,
+    0, 1);
 
-  let mut u_curr = Uf32 { 
+  let mut u_curr = U2df32 { 
     rho: &mut uvec_curr_2d.rho,
     mnt: &mut uvec_curr_2d.mnt,
-    bz:  &mut uvec_curr_2d.bz };
+    bz:  &mut uvec_curr_2d.bz,
+    rows: BLOCK_SIZE * (ROW_SIZE + 2),
+    cols: BLOCK_SIZE * (COL_SIZE + 2), };
 
-  let mut u_next = Uf32 { 
+  let mut u_next = U2df32 { 
     rho: &mut uvec_next_2d.rho,
     mnt: &mut uvec_next_2d.mnt,
-    bz:  &mut uvec_next_2d.bz };
+    bz:  &mut uvec_next_2d.bz,
+    rows: BLOCK_SIZE * (ROW_SIZE + 2),
+    cols: BLOCK_SIZE * (COL_SIZE + 2), };
 
-  let f = Uf32 { 
+  let f = U2df32 { 
     rho: &mut fvec_2d.rho,
     mnt: &mut fvec_2d.mnt,
-    bz:  &mut fvec_2d.bz };
+    bz:  &mut fvec_2d.bz,
+    rows: BLOCK_SIZE * (ROW_SIZE + 1),
+    cols: BLOCK_SIZE * (COL_SIZE + 1), };
 
   let ustride = BLOCK_SIZE * (COL_SIZE + 2);
   let urow_count = ROW_SIZE * BLOCK_SIZE;
@@ -213,5 +262,5 @@ pub fn main() {
   }
 
   args_debug_print(&args);
-  mesh_2d_fn::debug_print_2d(Uf32View::from(&u_curr), BLOCK_SIZE * ROW_SIZE, BLOCK_SIZE * COL_SIZE);
+  mesh_2d_fn::debug_print_2d(U2dViewf32::from(&u_curr), BLOCK_SIZE * ROW_SIZE, BLOCK_SIZE * COL_SIZE);
 }
