@@ -2,7 +2,7 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
-
+mod cla;
 mod mesh_st;
 mod mesh_fn;
 mod mesh_2d_fn;
@@ -10,6 +10,8 @@ mod central_flux;
 mod lxf_flux;
 mod rusanov_flux;
 mod roe_flux;
+
+use clap::Parser;
 
 use mesh_st::{Uf32, Uf32View, U2dCfg, U2df32, U2dViewf32};
 
@@ -49,54 +51,6 @@ fn mnt_init_zero ( mnt: &mut [f32])
   {
     *el = 0.0f32;
   }
-}
-
-use clap::Parser;
-
-#[derive(Parser, Debug)]
-#[command(version, about = "CLA --c0 0.5 --dt 0.5 --dx 1.0 --iter 1")]
-struct Args {
-    /// Must be > 0 (default: 1.0)
-    #[arg(long, default_value_t = 0.5, value_parser = validate_gt_zero_f32)]
-    c0: f32,
-
-    /// Must be > 0 (default: 0.5)
-    #[arg(long, default_value_t = 0.5, value_parser = validate_gt_zero_f32)]
-    dt: f32,
-
-    /// Must be > 0 (default: 1.0)
-    #[arg(long, default_value_t = 1.0, value_parser = validate_gt_zero_f32)]
-    dx: f32,
-
-    /// Must be > 0 (default: 1)
-    #[arg(long, default_value_t = 1, value_parser = validate_gt_zero_u32)]
-    iter: u32,
-}
-
-// Validation for f32 parameters
-fn validate_gt_zero_f32(s: &str) -> Result<f32, String> {
-    let val: f32 = s.parse().map_err(|_| format!("`{}` is not a valid number", s))?;
-    if val > 0.0 {
-        Ok(val)
-    } else {
-        Err(format!("Value must be greater than 0, found {}", val))
-    }
-}
-
-// Validation for u32 parameters
-fn validate_gt_zero_u32(s: &str) -> Result<u32, String> {
-    let val: u32 = s.parse().map_err(|_| format!("`{}` is not a valid integer", s))?;
-    if val > 0 {
-        Ok(val)
-    } else {
-        Err(format!("Repeat must be at least 1, found {}", val))
-    }
-}
-
-fn args_debug_print(args: &Args)
-{
-  println!("{:>8} {:>8} {:>8} {:>8}","iter", "c0", "dt", "dx");
-  println!("{:8} {:>8.5} {:>8.5} {:>8.5}", args.iter, args.c0, args.dt, args.dx);
 }
 
 struct UVecf32
@@ -149,7 +103,7 @@ const ROW_SIZE: usize   = 32usize;
 const COL_SIZE: usize   = 64usize;
 
 pub fn main() {
-  let args = Args::parse();
+  let args = cla::Args::parse();
 
   let c0   = args.c0;
   let dt   = args.dt;
@@ -293,6 +247,6 @@ pub fn main() {
     }
   }
 
-  args_debug_print(&args);
+  cla::args_debug_print(&args);
   mesh_2d_fn::debug_print_2d(U2dViewf32::from(&u_curr));
 }
